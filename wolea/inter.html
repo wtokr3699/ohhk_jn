@@ -1,0 +1,421 @@
+import React, { useState, useEffect } from 'react';
+import { ChevronRight, Sparkles, BookOpen, Music, ChevronDown, ExternalLink } from 'lucide-react';
+
+export default function WoleaAI() {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [meditationInput, setMeditationInput] = useState('');
+  const [canProceed, setCanProceed] = useState(false);
+  const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedConti, setGeneratedConti] = useState(null);
+  const [worshipDetails, setWorshipDetails] = useState({
+    serviceType: '',
+    theme: '',
+    congregation: '',
+    duration: '',
+    churchCalendar: '',
+    specialNotes: ''
+  });
+
+  useEffect(() => {
+    if (currentPage === 2) {
+      const timer = setTimeout(() => {
+        setCanProceed(true);
+      }, 15000); // 15초 후 활성화
+      return () => clearTimeout(timer);
+    }
+  }, [currentPage]);
+
+  const handleScroll = (e) => {
+    const bottom = e.target.scrollHeight - e.target.scrollTop <= e.target.clientHeight + 50;
+    if (bottom) {
+      setScrolledToBottom(true);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentPage === 2 && meditationInput.trim() && (canProceed || scrolledToBottom)) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentPage(3);
+        setIsTransitioning(false);
+      }, 700);
+      setTimeout(() => {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setCurrentPage(4);
+          setIsTransitioning(false);
+        }, 700);
+      }, 2000);
+      setCanProceed(false);
+      setScrolledToBottom(false);
+    } else if (currentPage !== 2) {
+      setIsTransitioning(true);
+      setTimeout(() => {
+        setCurrentPage(currentPage + 1);
+        setIsTransitioning(false);
+      }, 700);
+    }
+  };
+
+  const handleDetailsChange = (field, value) => {
+    setWorshipDetails(prev => ({ ...prev, [field]: value }));
+  };
+
+  const generateConti = async () => {
+    setIsGenerating(true);
+    
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          system: `당신은 성경, 찬송가, CCM 찬양에 대해 깊이 이해하고 있는 예배 찬양 콘티 전문가입니다. 
+          
+성경적 묵상과 예배의 흐름을 고려하여 찬양 콘티를 제안합니다. 다음 원칙을 따라주세요:
+
+1. 성경 본문과 주제에 맞는 찬양을 선곡합니다
+2. 예배의 흐름 (개회-찬양-말씀-헌신-파송)을 고려합니다
+3. 회중의 특성과 선호를 반영합니다
+4. 찬송가와 CCM을 균형있게 배치합니다
+5. 각 찬양의 선곡 이유를 간단히 설명합니다
+
+응답 형식:
+- 찬양 제목 (찬송가 번호 또는 CCM)
+- 선곡 이유 (한 줄)
+- 총 3-5곡 추천`,
+          messages: [
+            { 
+              role: "user", 
+              content: `다음 정보를 바탕으로 찬양 콘티를 제안해주세요:
+
+묵상 내용: ${meditationInput}
+예배 유형: ${worshipDetails.serviceType}
+예배 주제/본문: ${worshipDetails.theme}
+회중 특성: ${worshipDetails.congregation}
+찬양 시간: ${worshipDetails.duration}
+교회력: ${worshipDetails.churchCalendar}
+특별 사항: ${worshipDetails.specialNotes}
+
+성경적이고 은혜로운 찬양 콘티를 제안해주세요.`
+            }
+          ],
+        })
+      });
+
+      const data = await response.json();
+      const contiText = data.content
+        .map(item => (item.type === "text" ? item.text : ""))
+        .filter(Boolean)
+        .join("\n");
+      
+      setGeneratedConti(contiText);
+    } catch (error) {
+      console.error('찬양 콘티 생성 오류:', error);
+      setGeneratedConti('찬양 콘티 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const pageVariants = {
+    1: 'translate-y-0 opacity-100',
+    entering: 'translate-y-full opacity-0',
+    exiting: '-translate-y-full opacity-0'
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 flex items-center justify-center p-4 overflow-hidden">
+      <div className="w-full max-w-3xl">
+        {/* Page 1: Welcome */}
+        {currentPage === 1 && (
+          <div className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 text-center transform transition-all duration-700 ${
+            isTransitioning ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'
+          }`}>
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center">
+                <Sparkles className="w-10 h-10 text-white" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-slate-800 mb-4">
+              안녕하세요
+            </h1>
+            <p className="text-xl text-slate-600 mb-8">
+              예배인도자 워리어(Wolea) 여러분<br />
+              저는 <span className="font-semibold text-indigo-700">Wolea.Ai</span> 입니다.
+            </p>
+            <button
+              onClick={handleNext}
+              className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-10 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            >
+              반갑습니다
+            </button>
+          </div>
+        )}
+
+        {/* Page 2: Meditation Input */}
+        {currentPage === 2 && (
+          <div className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 max-h-[85vh] flex flex-col transition-all duration-700 ${
+            isTransitioning ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'
+          }`}>
+            <div className="flex items-center justify-center mb-6">
+              <BookOpen className="w-12 h-12 text-indigo-700 mr-3" />
+              <Music className="w-12 h-12 text-indigo-700" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-3 text-center">
+              저는 당신의 성경과 찬양 묵상을<br />대신해주지 않습니다.
+            </h2>
+            <p className="text-lg text-slate-600 mb-6 text-center">
+              오늘은 어떤 묵상을 하셨나요?
+            </p>
+            
+            <div 
+              className="flex-1 overflow-y-auto pr-2"
+              onScroll={handleScroll}
+            >
+              <textarea
+                value={meditationInput}
+                onChange={(e) => setMeditationInput(e.target.value)}
+                placeholder="예) 마태복음 1장 1절&#10;예) 주 찬양 내 삶의 이유&#10;&#10;충분한 시간을 가지고 묵상해주세요.&#10;15초 후 또는 아래로 스크롤하면 다음으로 진행할 수 있습니다."
+                className="w-full h-64 px-6 py-4 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700 text-lg resize-none"
+              />
+              
+              <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+                <div className="flex items-start">
+                  <ExternalLink className="w-5 h-5 text-blue-600 mr-2 mt-1 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800 mb-1">더 깊은 묵상을 원하시나요?</p>
+                    <p className="text-sm text-blue-700 mb-2">초원(Chowon)에서 오늘의 말씀을 더 깊이 묵상해보세요.</p>
+                    <a 
+                      href="https://chowon.in/home" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-block text-sm text-blue-600 hover:text-blue-800 font-semibold underline"
+                    >
+                      초원 바로가기 →
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              <div className="h-32"></div>
+            </div>
+
+            {!canProceed && !scrolledToBottom && (
+              <div className="text-center mt-4 animate-bounce">
+                <ChevronDown className="w-6 h-6 text-indigo-600 mx-auto" />
+                <p className="text-sm text-slate-500 mt-2">아래로 스크롤하거나 잠시 기다려주세요</p>
+              </div>
+            )}
+
+            <button
+              onClick={handleNext}
+              disabled={!meditationInput.trim() || (!canProceed && !scrolledToBottom)}
+              className="w-full mt-6 bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group"
+            >
+              다음
+              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        )}
+
+        {/* Page 3: Loading */}
+        {currentPage === 3 && (
+          <div className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-16 text-center transition-all duration-700 ${
+            isTransitioning ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'
+          }`}>
+            <div className="flex justify-center mb-8">
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-full flex items-center justify-center animate-pulse">
+                <Sparkles className="w-12 h-12 text-white animate-spin" />
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-slate-800">
+              Wolea 생각중...
+            </h2>
+          </div>
+        )}
+
+        {/* Page 4: Detailed Worship Information */}
+        {currentPage === 4 && !generatedConti && (
+          <div className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 max-h-[85vh] overflow-y-auto transition-all duration-700 ${
+            isTransitioning ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'
+          }`}>
+            <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">
+              예배 준비 정보
+            </h2>
+            <p className="text-slate-600 mb-8 text-center">
+              더 나은 찬양 콘티를 위해 상세 정보를 입력해주세요
+            </p>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  예배 유형
+                </label>
+                <input
+                  type="text"
+                  value={worshipDetails.serviceType}
+                  onChange={(e) => handleDetailsChange('serviceType', e.target.value)}
+                  placeholder="예) 주일예배, 찬양예배, 청년예배"
+                  className="w-full px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  예배 주제 또는 설교 본문
+                </label>
+                <input
+                  type="text"
+                  value={worshipDetails.theme}
+                  onChange={(e) => handleDetailsChange('theme', e.target.value)}
+                  placeholder="예) 은혜, 요한복음 3장 16절"
+                  className="w-full px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  회중 특성
+                </label>
+                <input
+                  type="text"
+                  value={worshipDetails.congregation}
+                  onChange={(e) => handleDetailsChange('congregation', e.target.value)}
+                  placeholder="예) 청년, 장년, 온세대"
+                  className="w-full px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  찬양 시간 (분)
+                </label>
+                <input
+                  type="text"
+                  value={worshipDetails.duration}
+                  onChange={(e) => handleDetailsChange('duration', e.target.value)}
+                  placeholder="예) 20분, 30분"
+                  className="w-full px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  교회력
+                </label>
+                <input
+                  type="text"
+                  value={worshipDetails.churchCalendar}
+                  onChange={(e) => handleDetailsChange('churchCalendar', e.target.value)}
+                  placeholder="예) 대강절, 사순절, 부활절, 성령강림절"
+                  className="w-full px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  특별 사항
+                </label>
+                <textarea
+                  value={worshipDetails.specialNotes}
+                  onChange={(e) => handleDetailsChange('specialNotes', e.target.value)}
+                  placeholder="예) 성찬식 있음, 빠른 템포 선호, 정적인 분위기"
+                  className="w-full h-32 px-5 py-3 border-2 border-slate-300 rounded-xl focus:border-indigo-600 focus:outline-none text-slate-700 resize-none"
+                />
+              </div>
+
+              <button
+                onClick={generateConti}
+                disabled={isGenerating}
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center group"
+              >
+                {isGenerating ? (
+                  <>
+                    <Sparkles className="mr-2 w-5 h-5 animate-spin" />
+                    찬양 콘티 생성중...
+                  </>
+                ) : (
+                  <>
+                    찬양 콘티 생성하기
+                    <Sparkles className="ml-2 w-5 h-5 group-hover:scale-110 transition-transform" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Page 5: Generated Conti */}
+        {generatedConti && (
+          <div className={`bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-12 max-h-[85vh] overflow-y-auto transition-all duration-700 ${
+            isTransitioning ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'
+          }`}>
+            <h2 className="text-3xl font-bold text-slate-800 mb-2 text-center">
+              생성된 찬양 콘티
+            </h2>
+            <p className="text-slate-600 mb-8 text-center">
+              성경과 찬양에 기반한 맞춤 콘티입니다
+            </p>
+            
+            <div className="bg-slate-50 rounded-xl p-6 mb-6 border border-slate-200">
+              <div className="whitespace-pre-wrap text-slate-700 leading-relaxed">
+                {generatedConti}
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setIsTransitioning(true);
+                  setTimeout(() => {
+                    setGeneratedConti(null);
+                    setCurrentPage(1);
+                    setMeditationInput('');
+                    setWorshipDetails({
+                      serviceType: '',
+                      theme: '',
+                      congregation: '',
+                      duration: '',
+                      churchCalendar: '',
+                      specialNotes: ''
+                    });
+                    setIsTransitioning(false);
+                  }, 700);
+                }}
+                className="flex-1 bg-slate-200 text-slate-700 px-6 py-3 rounded-full font-semibold hover:bg-slate-300 transition-all duration-300"
+              >
+                새로 시작하기
+              </button>
+              <button
+                onClick={generateConti}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-3 rounded-full font-semibold hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 flex items-center justify-center"
+              >
+                <Sparkles className="mr-2 w-5 h-5" />
+                다시 생성하기
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        @keyframes slideUp {
+          from {
+            transform: translateY(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
